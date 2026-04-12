@@ -1,0 +1,11 @@
+{
+  "name": "horse-security-headers",
+  "version": "1.0.0-beta.1",
+  "description": "Response security headers middleware for the Horse web framework",
+  "mainsrc": "src/",
+  "browsingpath": "src/",
+  "homepage": "https://github.com/freitasjca/horse-security-headers",
+  "dependencies": {
+    "github.com/HashLoad/horse": ">=3.0.0"
+  }
+}
