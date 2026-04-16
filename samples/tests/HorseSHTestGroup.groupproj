@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{5748392D-43F0-4521-9536-3F7E0E8F4294}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="HorseSHTestClient.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="HorseSHTestServer.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="HorseSHTestClient">
+        <MSBuild Projects="HorseSHTestClient.dproj"/>
+    </Target>
+    <Target Name="HorseSHTestClient:Clean">
+        <MSBuild Projects="HorseSHTestClient.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="HorseSHTestClient:Make">
+        <MSBuild Projects="HorseSHTestClient.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="HorseSHTestServer">
+        <MSBuild Projects="HorseSHTestServer.dproj"/>
+    </Target>
+    <Target Name="HorseSHTestServer:Clean">
+        <MSBuild Projects="HorseSHTestServer.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="HorseSHTestServer:Make">
+        <MSBuild Projects="HorseSHTestServer.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="HorseSHTestClient;HorseSHTestServer"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="HorseSHTestClient:Clean;HorseSHTestServer:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="HorseSHTestClient:Make;HorseSHTestServer:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

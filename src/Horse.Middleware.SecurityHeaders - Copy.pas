@@ -22,9 +22,10 @@
 interface
 
 uses
-  Horse.Request,
-  Horse.Response,
-  Horse.Callback;
+  Horse;
+  //Horse.Request,
+  //Horse.Response,
+  //Horse.Callback;
 
 type
   /// Controls the X-Frame-Options response header.
@@ -70,6 +71,14 @@ type
     class function Strict: THorseSecurityHeadersConfig; static;
   end;
 
+  THorseSecurityHeadersMiddleware = class
+  private
+    FConfig: THorseSecurityHeadersConfig;
+  public
+    constructor Create(const AConfig: THorseSecurityHeadersConfig);
+    procedure Handle(AReq: THorseRequest; ARes: THorseResponse; ANext: TNextProc);
+  end;
+
   THorseSecurityHeaders = class
   public
     class function New: THorseCallback; overload;
@@ -78,36 +87,13 @@ type
 
 implementation
 
-// THorseSecurityHeadersMiddleware is an implementation detail — not part of
-// the public API.  It is declared here so that:
-//   a) Horse.Proc (needed for TNextProc in Handle's signature) stays out of
-//      the interface uses clause, preserving the zero-extra-dependency rule.
-//   b) Consumers of this unit cannot instantiate or subclass it directly.
-//
-// Lifetime: New() allocates an instance that is intentionally never freed.
-// For reference-to-procedure Horse (Delphi ARC): the compiler wraps the bound
-// method in an anonymous closure; the closure holds a raw Self pointer — NOT
-// a reference count — so the object must outlive all calls.  For of-object
-// Horse (old versions): the method pointer stores Self directly; same rule.
-// Middleware instances are created once at server startup and live for the
-// server's lifetime, so the leak is bounded and harmless.
-
 uses
 {$IF DEFINED(FPC)}
-  SysUtils,
+  SysUtils;
 {$ELSE}
-  System.SysUtils,
+  System.SysUtils;
 {$ENDIF}
-  Horse.Proc;
-
-type
-  THorseSecurityHeadersMiddleware = class
-  private
-    FConfig: THorseSecurityHeadersConfig;
-  public
-    constructor Create(const AConfig: THorseSecurityHeadersConfig);
-    procedure Handle(AReq: THorseRequest; ARes: THorseResponse; ANext: TNextProc);
-  end;
+  //Horse.Proc;
 
 { Helpers }
 
@@ -152,6 +138,67 @@ begin
   Result.HSTSIncludeSubDomains := True;
 end;
 
+{ THorseSecurityHeaders }
+
+class function THorseSecurityHeaders.New: THorseCallback;
+var
+  LMiddleware: THorseSecurityHeadersMiddleware;
+begin
+  LMiddleware := THorseSecurityHeadersMiddleware.Create(THorseSecurityHeadersConfig.Default);
+  Result := LMiddleware.Handle;
+end;
+
+class function THorseSecurityHeaders.New(const AConfig: THorseSecurityHeadersConfig): THorseCallback;
+var
+  LMiddleware: THorseSecurityHeadersMiddleware;
+begin
+  LMiddleware := THorseSecurityHeadersMiddleware.Create(AConfig);
+  Result := LMiddleware.Handle;
+end;
+
+(*
+class function THorseSecurityHeaders.New(const AConfig: THorseSecurityHeadersConfig): THorseCallback;
+var
+  // Capture a copy of the config record.  AConfig is a const param (passed by
+  // reference on large records); capturing it directly would capture a
+  // pointer to a stack frame that is gone after New() returns.
+  LConfig: THorseSecurityHeadersConfig;
+begin
+  LConfig := AConfig;
+
+  Result :=
+    procedure(Req: THorseRequest; Res: THorseResponse; Next: TNextProc)
+    var
+      LHsts: string;
+    begin
+      // Run the downstream middleware and route handler first.
+      // Headers are added to the completed response below.
+      Next;
+
+      if LConfig.XContentTypeOptions then
+        Res.AddHeader('X-Content-Type-Options', 'nosniff');
+
+      Res.AddHeader('X-Frame-Options', FrameOptionStr(LConfig.XFrameOptions));
+
+      Res.AddHeader('Referrer-Policy', ReferrerPolicyStr(LConfig.ReferrerPolicy));
+
+      if LConfig.CacheControlNoStore then
+        Res.AddHeader('Cache-Control', 'no-store');
+
+      if LConfig.HSTSMaxAge > 0 then
+      begin
+        LHsts := 'max-age=' + IntToStr(LConfig.HSTSMaxAge);
+        if LConfig.HSTSIncludeSubDomains then
+          LHsts := LHsts + '; includeSubDomains';
+        Res.AddHeader('Strict-Transport-Security', LHsts);
+      end;
+
+      if LConfig.SuppressServerHeader then
+        Res.AddHeader('Server', 'unknown');
+    end;
+end;
+*)
+
 { THorseSecurityHeadersMiddleware }
 
 constructor THorseSecurityHeadersMiddleware.Create(const AConfig: THorseSecurityHeadersConfig);
@@ -163,10 +210,6 @@ procedure THorseSecurityHeadersMiddleware.Handle(AReq: THorseRequest; ARes: THor
 var
   LHsts: string;
 begin
-  // Call the downstream middleware / route handler first so that security
-  // headers are stamped on the completed response, consistent with the
-  // original anonymous-closure design (Next → then add headers).
-  ANext;
 
   if FConfig.XContentTypeOptions then
     ARes.AddHeader('X-Content-Type-Options', 'nosniff');
@@ -188,24 +231,9 @@ begin
 
   if FConfig.SuppressServerHeader then
     ARes.AddHeader('Server', 'unknown');
-end;
 
-{ THorseSecurityHeaders }
-
-class function THorseSecurityHeaders.New: THorseCallback;
-var
-  LMiddleware: THorseSecurityHeadersMiddleware;
-begin
-  LMiddleware := THorseSecurityHeadersMiddleware.Create(THorseSecurityHeadersConfig.Default);
-  Result := LMiddleware.Handle;
-end;
-
-class function THorseSecurityHeaders.New(const AConfig: THorseSecurityHeadersConfig): THorseCallback;
-var
-  LMiddleware: THorseSecurityHeadersMiddleware;
-begin
-  LMiddleware := THorseSecurityHeadersMiddleware.Create(AConfig);
-  Result := LMiddleware.Handle;
+  ANext();
 end;
 
 end.
+
